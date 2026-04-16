@@ -117,13 +117,36 @@ namespace PryBarreraSP2ER
         {
             try
             {
-                string templatePath = Path.Combine(
-                    AppDomain.CurrentDomain.BaseDirectory,
-                    "Distribuidora_Template.accdb"
-                );
+                string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                string templateName = "Distribuidora_Template.accdb";
+                string templatePath = Path.Combine(baseDir, templateName);
 
+                MostrarLog($"Plantilla esperada: {templatePath}");
+
+                // Si no existe exactamente en la ruta esperada, buscar en el directorio de salida (subcarpetas incl.)
                 if (!File.Exists(templatePath))
-                    throw new FileNotFoundException("No se encontró la plantilla de BD.", templatePath);
+                {
+                    MostrarLog("No encontrada en la ruta exacta. Buscando coincidencias en la carpeta de salida...");
+
+                    var candidatos = Directory.GetFiles(baseDir, "Distribuidora_Template.*", SearchOption.AllDirectories);
+                    if (candidatos.Length == 0)
+                    {
+                        candidatos = Directory.GetFiles(baseDir, "Distribuidora*.*", SearchOption.AllDirectories);
+                    }
+
+                    if (candidatos.Length == 0)
+                    {
+                        // Listar archivos para diagnóstico
+                        var archivos = Directory.GetFiles(baseDir, "*", SearchOption.TopDirectoryOnly);
+                        var listado = archivos.Length == 0 ? "(vacío)" : string.Join(", ", Array.ConvertAll(archivos, Path.GetFileName));
+                        MostrarLog("Archivos en carpeta de salida: " + listado);
+
+                        throw new FileNotFoundException("No se encontró la plantilla de BD en la carpeta de salida.", templatePath);
+                    }
+
+                    templatePath = candidatos[0];
+                    MostrarLog("Plantilla encontrada en: " + templatePath);
+                }
 
                 File.Copy(templatePath, rutaBaseDatos, overwrite: true);
                 MostrarLog("✓ Base de datos creada exitosamente.");
@@ -133,6 +156,6 @@ namespace PryBarreraSP2ER
                 MostrarLog($"✗ Error creando base de datos: {ex.Message}");
                 throw;
             }
-    }
+        }
     }
 }
