@@ -1,137 +1,244 @@
-﻿using System;
+﻿using pryBarreraBaseDeDatos;
+using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
 using System.Data.OleDb;
-using System.Drawing;
-using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Windows.Forms;
-using pryBarreraBaseDeDatos;
+using System.IO;        
+using System.Text;      
 
 namespace PryBarreraSP2ER
 {
-    public partial class frmPrincipal : Form
+    internal class clsMigracion
     {
-        private clsConexionDB _conexion;
-        private clsMigracion _migracion;
+        private readonly clsConexionDB _conexion;
+        private readonly StringBuilder _log;
 
-        public frmPrincipal()
+        public string Log => _log.ToString();
+
+        public clsMigracion(clsConexionDB conexion)
         {
-            InitializeComponent();
+            _conexion = conexion ?? throw new ArgumentNullException(nameof(conexion));
+            _log = new StringBuilder();
         }
 
-        private void BtnIniciarMigracion_Click(object sender, EventArgs e)
+        // ─────────────────────────────────────────────
+        // Crear estructura de tablas en la BD
+        // ─────────────────────────────────────────────
+        public bool CrearEstructuraBaseDatos()
         {
-            txtLog.Clear();
-            btnIniciarMigracion.Enabled = false;
-
             try
             {
-                string rutaBaseDatos = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Distribuidora.accdb");
-                string rutaCategorias = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Categorias.txt");
-                string rutaArticulos = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Articulos.txt");
+                string connStr = _conexion.GetConnectionString();
 
-                MostrarLog("========== INICIO DE MIGRACIÓN ==========");
-                MostrarLog($"Ruta Base de Datos: {rutaBaseDatos}");
-                MostrarLog($"Ruta Categorías: {rutaCategorias}");
-                MostrarLog($"Ruta Artículos: {rutaArticulos}");
-                MostrarLog("");
-
-                // Eliminar base de datos existente para empezar limpio
-                if (File.Exists(rutaBaseDatos))
+                using (var conn = new OleDbConnection(connStr))
                 {
-                    MostrarLog("Eliminando base de datos anterior...");
-                    try
-                    {
-                        File.Delete(rutaBaseDatos);
-                        System.Threading.Thread.Sleep(500);
-                        MostrarLog("✓ Base de datos anterior eliminada.");
-                    }
-                    catch (Exception ex)
-                    {
-                        MostrarLog($"⚠ Advertencia al eliminar BD anterior: {ex.Message}");
-                    }
+                    conn.Open();
+
+                    // Tabla Categorias
+                    string sqlCategorias = @"
+                        CREATE TABLE Categorias (
+                            IdCategoria INTEGER NOT NULL PRIMARY KEY,
+                            Nombre      VARCHAR(100) NOT NULL
+                        )";
+
+                    // Tabla Articulos
+                    string sqlArticulos = @"
+                        CREATE TABLE Articulos (
+                            IdArticulo  INTEGER NOT NULL PRIMARY KEY,
+                            Nombre      VARCHAR(150) NOT NULL,
+                            IdCategoria INTEGER NOT NULL,
+                            Precio      DOUBLE NOT NULL,
+                            CONSTRAINT FK_Articulos_Categorias
+                                FOREIGN KEY (IdCategoria) REFERENCES Categorias(IdCategoria)
+                        )";
+
+                    EjecutarDDL(conn, sqlCategorias);
+                    _log.AppendLine("  → Tabla 'Categorias' creada.");
+
+                    EjecutarDDL(conn, sqlArticulos);
+                    _log.AppendLine("  → Tabla 'Articulos' creada.");
                 }
 
-                // Crear base de datos nueva
-                MostrarLog("Creando base de datos Distribuidora.accdb...");
-                CrearBaseDatos(rutaBaseDatos);
-
-                _conexion = new clsConexionDB(rutaBaseDatos);
-                _migracion = new clsMigracion(_conexion);
-
-                // Crear estructura
-                MostrarLog("Creando estructura de tablas...");
-                if (_migracion.CrearEstructuraBaseDatos())
-                {
-                    MostrarLog("✓ Estructura de tablas creada exitosamente.");
-                }
-                else
-                {
-                    MostrarLog("✗ Error al crear estructura.");
-                }
-                MostrarLog(_migracion.Log);
-
-                // Migrar categorías
-                MostrarLog("Migrando categorías...");
-                _migracion = new clsMigracion(_conexion);
-                _migracion.MigrarCategorias(rutaCategorias);
-                MostrarLog(_migracion.Log);
-
-                // Migrar artículos
-                MostrarLog("Migrando artículos...");
-                _migracion = new clsMigracion(_conexion);
-                _migracion.MigrarArticulos(rutaArticulos);
-                MostrarLog(_migracion.Log);
-
-                MostrarLog("========== MIGRACIÓN COMPLETADA ==========");
+                return true;
             }
             catch (Exception ex)
             {
-                MostrarLog($"✗ Error: {ex.Message}");
-                MessageBox.Show($"Error durante la migración:\n{ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                _conexion?.Dispose();
-                btnIniciarMigracion.Enabled = true;
+                _log.AppendLine($"✗ Error creando estructura: {ex.Message}");
+                return false;
             }
         }
 
-        private void MostrarLog(string mensaje)
+        // ─────────────────────────────────────────────
+        // Migrar Categorias.txt → tabla Categorias
+        // ─────────────────────────────────────────────
+        public void MigrarCategorias(string rutaArchivo)
         {
-            if (txtLog.InvokeRequired)
+            _log.AppendLine("Migrando datos de Categorías...");
+
+            if (!File.Exists(rutaArchivo))
             {
-                txtLog.Invoke(new Action(() => MostrarLog(mensaje)));
+                _log.AppendLine($"✗ Archivo no encontrado: {rutaArchivo}");
                 return;
             }
 
-            txtLog.AppendText(mensaje + Environment.NewLine);
-            txtLog.ScrollToCaret();
+            int insertados = 0;
+            int errores = 0;
+
+            string connStr = _conexion.GetConnectionString();
+
+            using (var conn = new OleDbConnection(connStr))
+            {
+                conn.Open();
+
+                foreach (string linea in File.ReadLines(rutaArchivo, Encoding.UTF8))
+                {
+                    if (string.IsNullOrWhiteSpace(linea)) continue;
+
+                    // Formato esperado: IdCategoria,Nombre
+                    string[] partes = linea.Split(',');
+                    if (partes.Length < 2)
+                    {
+                        _log.AppendLine($"  ⚠ Línea con formato incorrecto: '{linea}'");
+                        errores++;
+                        continue;
+                    }
+
+                    if (!int.TryParse(partes[0].Trim(), out int idCategoria))
+                    {
+                        _log.AppendLine($"  ⚠ IdCategoria inválido en línea: '{linea}'");
+                        errores++;
+                        continue;
+                    }
+
+                    string nombre = partes[1].Trim();
+
+                    try
+                    {
+                        string sql = "INSERT INTO Categorias (IdCategoria, Nombre) VALUES (@id, @nombre)";
+                        using (var cmd = new OleDbCommand(sql, conn))
+                        {
+                            cmd.Parameters.AddWithValue("@id", idCategoria);
+                            cmd.Parameters.AddWithValue("@nombre", nombre);
+                            cmd.ExecuteNonQuery();
+                            insertados++;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _log.AppendLine($"  ✗ Error insertando categoría {idCategoria}: {ex.Message}");
+                        errores++;
+                    }
+                }
+            }
+
+            _log.AppendLine($"Se incorporaron {insertados} registros nuevos.");
+            if (errores > 0)
+                _log.AppendLine($"  ⚠ {errores} línea(s) con errores.");
         }
 
-        private void CrearBaseDatos(string rutaBaseDatos)
+        // ─────────────────────────────────────────────
+        // Migrar Articulos.txt → tabla Articulos
+        // ─────────────────────────────────────────────
+        public void MigrarArticulos(string rutaArchivo)
         {
-            try
+            _log.AppendLine("Migrando datos de Artículos...");
+
+            if (!File.Exists(rutaArchivo))
             {
-                // Crear archivo .accdb usando ADOX Catalog
-                string connectionString = $"Provider=Microsoft.ACE.OLEDB.12.0;Data Source={rutaBaseDatos};";
-
-                object[] oParams = new object[1];
-                oParams[0] = connectionString;
-
-                object oCatalog = Activator.CreateInstance(Type.GetTypeFromProgID("ADOX.Catalog"));
-                oCatalog.GetType().InvokeMember("Create", System.Reflection.BindingFlags.InvokeMethod, null, oCatalog, oParams);
-
-                MostrarLog("✓ Base de datos creada exitosamente.");
+                _log.AppendLine($"✗ Archivo no encontrado: {rutaArchivo}");
+                return;
             }
-            catch (Exception ex)
+
+            int insertados = 0;
+            int errores = 0;
+
+            string connStr = _conexion.GetConnectionString();
+
+            using (var conn = new OleDbConnection(connStr))
             {
-                MostrarLog($"✗ Error creando base de datos: {ex.Message}");
-                throw;
+                conn.Open();
+
+                foreach (string linea in File.ReadLines(rutaArchivo, Encoding.UTF8))
+                {
+                    if (string.IsNullOrWhiteSpace(linea)) continue;
+
+                    // Formato esperado: IdArticulo,Nombre,IdCategoria,Precio
+                    string[] partes = linea.Split(',');
+                    if (partes.Length < 4)
+                    {
+                        _log.AppendLine($"  ⚠ Línea con formato incorrecto: '{linea}'");
+                        errores++;
+                        continue;
+                    }
+
+                    if (!int.TryParse(partes[0].Trim(), out int idArticulo))
+                    {
+                        _log.AppendLine($"  ⚠ IdArticulo inválido: '{linea}'");
+                        errores++;
+                        continue;
+                    }
+
+                    // El nombre puede contener comas; todo lo que está entre la 2da y
+                    // antepenúltima coma forma el nombre.
+                    // Pero para el formato simple de 4 columnas:
+                    string nombre = partes[1].Trim();
+
+                    if (!int.TryParse(partes[2].Trim(), out int idCategoria))
+                    {
+                        _log.AppendLine($"  ⚠ IdCategoria inválido en artículo {idArticulo}");
+                        errores++;
+                        continue;
+                    }
+
+                    // El precio puede usar '.' o ',' como separador decimal
+                    string precioStr = partes[3].Trim().Replace(',', '.');
+                    if (!double.TryParse(precioStr,
+                            System.Globalization.NumberStyles.Any,
+                            System.Globalization.CultureInfo.InvariantCulture,
+                            out double precio))
+                    {
+                        _log.AppendLine($"  ⚠ Precio inválido en artículo {idArticulo}: '{partes[3]}'");
+                        errores++;
+                        continue;
+                    }
+
+                    try
+                    {
+                        string sql = @"INSERT INTO Articulos (IdArticulo, Nombre, IdCategoria, Precio)
+                                       VALUES (@id, @nombre, @idCat, @precio)";
+                        using (var cmd = new OleDbCommand(sql, conn))
+                        {
+                            cmd.Parameters.AddWithValue("@id", idArticulo);
+                            cmd.Parameters.AddWithValue("@nombre", nombre);
+                            cmd.Parameters.AddWithValue("@idCat", idCategoria);
+                            cmd.Parameters.AddWithValue("@precio", precio);
+                            cmd.ExecuteNonQuery();
+                            insertados++;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _log.AppendLine($"  ✗ Error insertando artículo {idArticulo}: {ex.Message}");
+                        errores++;
+                    }
+                }
+            }
+
+            _log.AppendLine($"Se incorporaron {insertados} registros nuevos.");
+            if (errores > 0)
+                _log.AppendLine($"  ⚠ {errores} línea(s) con errores.");
+        }
+
+        // ─────────────────────────────────────────────
+        // Helpers
+        // ─────────────────────────────────────────────
+        private static void EjecutarDDL(OleDbConnection conn, string sql)
+        {
+            using (var cmd = new OleDbCommand(sql, conn))
+            {
+                cmd.ExecuteNonQuery();
             }
         }
     }

@@ -1,4 +1,4 @@
-using System;
+ï»¿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -34,10 +34,10 @@ namespace PryBarreraSP2ER
                 string rutaCategorias = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Categorias.txt");
                 string rutaArticulos = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Articulos.txt");
 
-                MostrarLog("========== INICIO DE MIGRACIÓN ==========");
+                MostrarLog("========== INICIO DE MIGRACIÃ“N ==========");
                 MostrarLog($"Ruta Base de Datos: {rutaBaseDatos}");
-                MostrarLog($"Ruta Categorías: {rutaCategorias}");
-                MostrarLog($"Ruta Artículos: {rutaArticulos}");
+                MostrarLog($"Ruta CategorÃ­as: {rutaCategorias}");
+                MostrarLog($"Ruta ArtÃ­culos: {rutaArticulos}");
                 MostrarLog("Creando base de datos Distribuidora.accdb...");
 
                 // Eliminar base de datos existente para empezar limpio
@@ -75,24 +75,24 @@ namespace PryBarreraSP2ER
                 }
                 MostrarLog(_migracion.Log);
 
-                // Migrar categorías
-                MostrarLog("Migrando categorías...");
+                // Migrar categorÃ­as
+                MostrarLog("Migrando categorÃ­as...");
                 _migracion = new clsMigracion(_conexion);
                 _migracion.MigrarCategorias(rutaCategorias);
                 MostrarLog(_migracion.Log);
 
-                // Migrar artículos
-                MostrarLog("Migrando artículos...");
+                // Migrar artÃ­culos
+                MostrarLog("Migrando artÃ­culos...");
                 _migracion = new clsMigracion(_conexion);
                 _migracion.MigrarArticulos(rutaArticulos);
                 MostrarLog(_migracion.Log);
 
-                MostrarLog("========== MIGRACIÓN COMPLETADA ==========");
+                MostrarLog("========== MIGRACIÃ“N COMPLETADA ==========");
             }
             catch (Exception ex)
             {
                 MostrarLog($"? Error: {ex.Message}");
-                MessageBox.Show($"Error durante la migración:\n{ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"Error durante la migraciÃ³n:\n{ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -117,22 +117,22 @@ namespace PryBarreraSP2ER
         {
             try
             {
-                // Crear el archivo .mdb usando OLEDB
-                string connectionString = $"Provider=Microsoft.ACE.OLEDB.12.0;Data Source={rutaBaseDatos};";
+                string templatePath = Path.Combine(
+                    AppDomain.CurrentDomain.BaseDirectory,
+                    "Distribuidora_Template.accdb"
+                );
 
-                object[] oParams = new object[1];
-                oParams[0] = connectionString;
+                if (!File.Exists(templatePath))
+                    throw new FileNotFoundException("No se encontrÃ³ la plantilla de BD.", templatePath);
 
-                object oCatalog = Activator.CreateInstance(Type.GetTypeFromProgID("ADOX.Catalog"));
-                oCatalog.GetType().InvokeMember("Create", System.Reflection.BindingFlags.InvokeMethod, null, oCatalog, oParams);
-                
-                MostrarLog("? Base de datos creada exitosamente.");
+                File.Copy(templatePath, rutaBaseDatos, overwrite: true);
+                MostrarLog("âœ“ Base de datos creada exitosamente.");
             }
             catch (Exception ex)
             {
-                MostrarLog($"? Error creando base de datos: {ex.Message}");
+                MostrarLog($"âœ— Error creando base de datos: {ex.Message}");
                 throw;
             }
-        }
+    }
     }
 }
