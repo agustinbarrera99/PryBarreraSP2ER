@@ -1,14 +1,14 @@
-namespace PryBarreraSP2ER
+锘縩amespace PryBarreraSP2ER
 {
     partial class frmPrincipal
     {
         /// <summary>
-        /// Variable del dise馻dor necesaria.
+        /// Variable del dise帽ador necesaria.
         /// </summary>
         private System.ComponentModel.IContainer components = null;
 
         /// <summary>
-        /// Limpiar los recursos que se est閚 usando.
+        /// Limpiar los recursos que se est茅n usando.
         /// </summary>
         /// <param name="disposing">true si los recursos administrados se deben desechar; false en caso contrario.</param>
         protected override void Dispose(bool disposing)
@@ -20,62 +20,73 @@ namespace PryBarreraSP2ER
             base.Dispose(disposing);
         }
 
-        #region C骴igo generado por el Dise馻dor de Windows Forms
+        #region C贸digo generado por el Dise帽ador de Windows Forms
 
         /// <summary>
-        /// M閠odo necesario para admitir el Dise馻dor. No se puede modificar
-        /// el contenido de este m閠odo con el editor de c骴igo.
+        /// M茅todo necesario para admitir el Dise帽ador. No se puede modificar
+        /// el contenido de este m茅todo con el editor de c贸digo.
         /// </summary>
         private void InitializeComponent()
         {
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(frmPrincipal));
             this.btnIniciarMigracion = new System.Windows.Forms.Button();
             this.txtLog = new System.Windows.Forms.TextBox();
-            this.lblTitulo = new System.Windows.Forms.Label();
+            this.lblInformacion = new System.Windows.Forms.Label();
             this.SuspendLayout();
-            
+            // 
             // btnIniciarMigracion
-            this.btnIniciarMigracion.Location = new System.Drawing.Point(560, 15);
+            // 
+            this.btnIniciarMigracion.Location = new System.Drawing.Point(295, 6);
             this.btnIniciarMigracion.Name = "btnIniciarMigracion";
-            this.btnIniciarMigracion.Size = new System.Drawing.Size(79, 23);
+            this.btnIniciarMigracion.Size = new System.Drawing.Size(120, 30);
             this.btnIniciarMigracion.TabIndex = 0;
-            this.btnIniciarMigracion.Text = "Iniciar Migraci髇";
+            this.btnIniciarMigracion.Text = "Iniciar Migraci贸n";
             this.btnIniciarMigracion.UseVisualStyleBackColor = true;
             this.btnIniciarMigracion.Click += new System.EventHandler(this.BtnIniciarMigracion_Click);
-            
+            // 
             // txtLog
-            this.txtLog.Location = new System.Drawing.Point(12, 43);
+            // 
+            this.txtLog.Location = new System.Drawing.Point(12, 45);
             this.txtLog.Multiline = true;
             this.txtLog.Name = "txtLog";
             this.txtLog.ReadOnly = true;
             this.txtLog.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
-            this.txtLog.Size = new System.Drawing.Size(627, 395);
+            this.txtLog.Size = new System.Drawing.Size(403, 298);
             this.txtLog.TabIndex = 1;
-            
-            // lblTitulo
-            this.lblTitulo.AutoSize = true;
-            this.lblTitulo.Location = new System.Drawing.Point(12, 20);
-            this.lblTitulo.Name = "lblTitulo";
-            this.lblTitulo.Size = new System.Drawing.Size(66, 13);
-            this.lblTitulo.TabIndex = 2;
-            this.lblTitulo.Text = "Informaci髇:";
-            
+            // 
+            // lblInformacion
+            // 
+            this.lblInformacion.AutoSize = true;
+            this.lblInformacion.Location = new System.Drawing.Point(12, 15);
+            this.lblInformacion.Name = "lblInformacion";
+            this.lblInformacion.Size = new System.Drawing.Size(65, 13);
+            this.lblInformacion.TabIndex = 0;
+            this.lblInformacion.Text = "Informaci贸n:";
+            // 
             // frmPrincipal
+            // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(655, 450);
-            this.Controls.Add(this.lblTitulo);
-            this.Controls.Add(this.txtLog);
+            this.BackColor = System.Drawing.SystemColors.ActiveCaption;
+            this.ClientSize = new System.Drawing.Size(424, 353);
+            this.Controls.Add(this.lblInformacion);
             this.Controls.Add(this.btnIniciarMigracion);
+            this.Controls.Add(this.txtLog);
+            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
+            this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
+            this.MaximizeBox = false;
             this.Name = "frmPrincipal";
-            this.Text = "Migraci髇 de Datos - GoodHard";
+            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
+            this.Text = "Migraci贸n de Datos";
             this.ResumeLayout(false);
             this.PerformLayout();
+
         }
 
         #endregion
 
         private System.Windows.Forms.Button btnIniciarMigracion;
         private System.Windows.Forms.TextBox txtLog;
-        private System.Windows.Forms.Label lblTitulo;
+        private System.Windows.Forms.Label lblInformacion;
     }
 }

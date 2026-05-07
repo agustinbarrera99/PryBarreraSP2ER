@@ -1,23 +1,11 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Data.OleDb;
-using System.Drawing;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
-using pryBarreraBaseDeDatos;
 
 namespace PryBarreraSP2ER
 {
     public partial class frmPrincipal : Form
     {
-        private clsConexionDB _conexion;
-        private clsMigracion _migracion;
-
         public frmPrincipal()
         {
             InitializeComponent();
@@ -25,137 +13,93 @@ namespace PryBarreraSP2ER
 
         private void BtnIniciarMigracion_Click(object sender, EventArgs e)
         {
+            // ── El usuario elige dónde guardar la BD ─────────────
+            SaveFileDialog dialogo = new SaveFileDialog();
+            dialogo.Title = "Guardar base de datos";
+            dialogo.Filter = "Base de datos Access (*.accdb)|*.accdb";
+            dialogo.FileName = "Distribuidora";
+            dialogo.DefaultExt = "accdb";
+
+            if (dialogo.ShowDialog() != DialogResult.OK)
+                return; // el usuario canceló
+
+            string rutaDB = dialogo.FileName;
+
+            // ─────────────────────────────────────────────────────
             txtLog.Clear();
             btnIniciarMigracion.Enabled = false;
 
             try
             {
-                string rutaBaseDatos = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Distribuidora.accdb");
-                string rutaCategorias = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Categorias.txt");
-                string rutaArticulos = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Articulos.txt");
+                string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                string rutaCategorias = Path.Combine(baseDir, "TextFiles", "Categorias.txt");
+                string rutaArticulos = Path.Combine(baseDir, "TextFiles", "Articulos.txt");
 
-                MostrarLog("========== INICIO DE MIGRACIÓN ==========");
-                MostrarLog($"Ruta Base de Datos: {rutaBaseDatos}");
-                MostrarLog($"Ruta Categorías: {rutaCategorias}");
-                MostrarLog($"Ruta Artículos: {rutaArticulos}");
-                MostrarLog("Creando base de datos Distribuidora.accdb...");
-
-                // Eliminar base de datos existente para empezar limpio
-                if (File.Exists(rutaBaseDatos))
+                if (File.Exists(rutaDB))
                 {
-                    MostrarLog("Eliminando base de datos anterior...");
-                    try
-                    {
-                        File.Delete(rutaBaseDatos);
-                        System.Threading.Thread.Sleep(500); // Esperar a que se libere el archivo
-                        MostrarLog("? Base de datos anterior eliminada.");
-                    }
-                    catch (Exception ex)
-                    {
-                        MostrarLog($"? Advertencia al eliminar BD anterior: {ex.Message}");
-                    }
+                    File.Delete(rutaDB);
+                    MostrarLog("Base de datos anterior eliminada.");
                 }
 
-                // Crear base de datos nueva
-                MostrarLog("Creando base de datos Distribuidora.mdb...");
-                CrearBaseDatos(rutaBaseDatos);
+                CrearBaseDatosAccdb(rutaDB);
+                MostrarLog($"Base de datos creada en: {rutaDB}");
 
-                _conexion = new clsConexionDB(rutaBaseDatos);
-                _migracion = new clsMigracion(_conexion);
+                string connStr = clsConexionDB.BuildConnectionString(rutaDB);
 
-                // Crear estructura
-                MostrarLog("Creando estructura de tablas...");
-                if (_migracion.CrearEstructuraBaseDatos())
+                using (clsConexionDB conexion = new clsConexionDB(connStr))
                 {
-                    MostrarLog("? Estructura de tablas creada exitosamente.");
+                    clsMigracion migracion = new clsMigracion(conexion);
+
+                    migracion.CrearEstructuraBaseDatos();
+                    MostrarLog(migracion.Log);
+                    migracion.LimpiarLog();
+
+                    migracion.MigrarCategorias(rutaCategorias);
+                    MostrarLog(migracion.Log);
+                    migracion.LimpiarLog();
+
+                    migracion.MigrarArticulos(rutaArticulos);
+                    MostrarLog(migracion.Log);
                 }
-                else
-                {
-                    MostrarLog("? Error al crear estructura.");
-                }
-                MostrarLog(_migracion.Log);
 
-                // Migrar categorías
-                MostrarLog("Migrando categorías...");
-                _migracion = new clsMigracion(_conexion);
-                _migracion.MigrarCategorias(rutaCategorias);
-                MostrarLog(_migracion.Log);
-
-                // Migrar artículos
-                MostrarLog("Migrando artículos...");
-                _migracion = new clsMigracion(_conexion);
-                _migracion.MigrarArticulos(rutaArticulos);
-                MostrarLog(_migracion.Log);
-
-                MostrarLog("========== MIGRACIÓN COMPLETADA ==========");
+                MostrarLog("Migración finalizada.");
             }
             catch (Exception ex)
             {
-                MostrarLog($"? Error: {ex.Message}");
-                MessageBox.Show($"Error durante la migración:\n{ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MostrarLog($"Error: {ex.Message}");
+                MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
-                _conexion?.Dispose();
                 btnIniciarMigracion.Enabled = true;
             }
         }
 
-        private void MostrarLog(string mensaje)
+        private void CrearBaseDatosAccdb(string rutaDB)
         {
-            if (txtLog.InvokeRequired)
-            {
-                txtLog.Invoke(new Action(() => MostrarLog(mensaje)));
-                return;
-            }
+            string carpeta = Path.GetDirectoryName(rutaDB);
+            if (!Directory.Exists(carpeta))
+                Directory.CreateDirectory(carpeta);
 
-            txtLog.AppendText(mensaje + Environment.NewLine);
-            txtLog.ScrollToCaret();
+            Type catalogType = Type.GetTypeFromProgID("ADOX.Catalog");
+            object catalogo = Activator.CreateInstance(catalogType);
+
+            string connStr = $"Provider=Microsoft.ACE.OLEDB.12.0;Data Source={rutaDB};";
+            catalogType.InvokeMember(
+                "Create",
+                System.Reflection.BindingFlags.InvokeMethod,
+                null,
+                catalogo,
+                new object[] { connStr }
+            );
+
+            System.Runtime.InteropServices.Marshal.ReleaseComObject(catalogo);
         }
 
-        private void CrearBaseDatos(string rutaBaseDatos)
+        private void MostrarLog(string mensaje)
         {
-            try
-            {
-                string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-                string templateName = "Distribuidora_Template.accdb";
-                string templatePath = Path.Combine(baseDir, templateName);
-
-                MostrarLog($"Plantilla esperada: {templatePath}");
-
-                // Si no existe exactamente en la ruta esperada, buscar en el directorio de salida (subcarpetas incl.)
-                if (!File.Exists(templatePath))
-                {
-                    MostrarLog("No encontrada en la ruta exacta. Buscando coincidencias en la carpeta de salida...");
-
-                    var candidatos = Directory.GetFiles(baseDir, "Distribuidora_Template.*", SearchOption.AllDirectories);
-                    if (candidatos.Length == 0)
-                    {
-                        candidatos = Directory.GetFiles(baseDir, "Distribuidora*.*", SearchOption.AllDirectories);
-                    }
-
-                    if (candidatos.Length == 0)
-                    {
-                        // Listar archivos para diagnóstico
-                        var archivos = Directory.GetFiles(baseDir, "*", SearchOption.TopDirectoryOnly);
-                        var listado = archivos.Length == 0 ? "(vacío)" : string.Join(", ", Array.ConvertAll(archivos, Path.GetFileName));
-                        MostrarLog("Archivos en carpeta de salida: " + listado);
-
-                        throw new FileNotFoundException("No se encontró la plantilla de BD en la carpeta de salida.", templatePath);
-                    }
-
-                    templatePath = candidatos[0];
-                    MostrarLog("Plantilla encontrada en: " + templatePath);
-                }
-
-                File.Copy(templatePath, rutaBaseDatos, overwrite: true);
-                MostrarLog("✓ Base de datos creada exitosamente.");
-            }
-            catch (Exception ex)
-            {
-                MostrarLog($"✗ Error creando base de datos: {ex.Message}");
-                throw;
-            }
+            txtLog.AppendText(mensaje + Environment.NewLine);
+            txtLog.ScrollToCaret();
         }
     }
 }
